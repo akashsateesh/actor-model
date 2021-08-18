@@ -1,0 +1,612 @@
+directive @connection(for:String!) on FIELD_DEFINITION
+
+type Query {
+    # For forward pagination, use after cursor ( cursor is available as a field ) and first.
+    # For backward pagination, use before cursor ( cursor is available as a field ) and last.
+    # Using both after/before and/or last/first is highy discouraged and can lead to confusing results.
+    # Apply after, before, first and last pagination filters normally as other filter parameters.
+
+    # Query Resources by applying one or more filters
+    # ResourceConnection returns the edges whose type is of Resource.
+    resources(filterBy:ResourceFilter!):ResourceConnection @connection(for:"Resource")
+    # Query Roles by applying one or more filters
+    # RoleConnection returns the edges whose type is of Role.
+    roles(filterBy:RoleFilter!):RoleConnection @connection(for:"Role")
+    # Query Actions by applying one or more Filter
+    actions(filterBy:ActionFilter!): ActionConnection @connection(for:"Action")
+    # Query Permissions by applying one or more Filter
+    permissions(filterBy:PermissionFilter!):[Permission]
+    #Query Tags
+    tags(filterBy:TagsFilter!):TagConnection @connection(for:"Tag")
+    #Query LDAP Grp
+    ldapGrp(filterBy:LDAPGrpFilter!):LDAPGrpConnection @connection(for:"LDAPGrp")
+    #Query Profile extensions within account.
+    profile(filterBy: ProfileExtensionFilter) : ProfileExtension
+}
+
+scalar Date
+scalar JSON
+
+enum State {
+    ACTIVE,
+    PUBLISHED,
+    IN_DRAFT,
+    DISABLED,
+    PROMOTED
+}
+
+enum SearchType {
+    CANONICAL_NAME,
+    TAG_NAME,
+    EXTERNAL_GRP_NAME
+}
+
+enum LDAPGrpType {
+    BUILTIN
+    CUSTOM
+    EXTERNAL
+}
+
+enum RoleType {
+    GLOBAL,
+    CUSTOM
+}
+
+enum Published {
+    PUBLISHED,
+    NOT_PUBLISHED,
+    UPDATED_AFTER_PUBLISH
+}
+
+interface Metadata {
+    createdAt: Date
+    updatedAt: Date
+    createdBy: String
+    updatedBy: String
+}
+
+input LDAPGrpFilter {
+    externalGrpName: String
+    state:State
+    contains:Contains
+    first:ID
+    last:ID
+    before:String
+    after:String
+}
+
+input ProfileExtensionFilter {
+    profileId: String
+    accountId: String
+    extensionNames: [String]
+}
+
+type LDAPGrpConnection {
+    edges: [LDAPGrpConnectionEdge]
+    pageInfo: PageInfo
+    totalCount:ID
+}
+
+type LDAPGrpConnectionEdge{
+    cursor: String
+    node: LDAPGrp
+}
+
+type ProfileExtension {
+    profileId: String
+    accountId: String
+    extensions: JSON
+}
+
+type LDAPGrp implements Metadata {
+    id : ID!
+    externalGrpName: String
+    state:State
+    roles: [Role]
+    audits:[Audit]
+    active: Boolean
+    published: Published
+    createdAt:Date
+    updatedAt:Date
+    createdBy:String
+    updatedBy:String
+    description:String
+}
+
+input PermissionFilter {
+    id:ID
+    canonicalName:String
+}
+
+input TagsFilter {
+    id:ID
+    name:String
+    contains:Contains
+    first:ID
+    last:ID
+    before:String
+    after:String
+}
+
+input ActionFilter {
+    id:ID
+    canonicalName:String
+    resource:String
+    contains:Contains
+    first:ID
+    last:ID
+    before:String
+    after:String
+}
+
+input ResourceFilter {
+    id: ID
+    canonicalName:String
+    parentCanonicalName:String
+    contains:Contains
+    state:State
+    first:ID
+    last:ID
+    before:String
+    after:String
+    tags:[String]
+}
+
+input RoleFilter {
+    id:ID
+    canonicalName:String
+    accountId:String
+    profileId:String
+    contains:Contains
+    tags:[String]
+    first:ID
+    last:ID
+    before:String
+    after:String
+}
+
+input Contains {
+    value : String
+    type : SearchType
+}
+
+type UserAssignment {
+    profileId: String!
+    accountId:String
+    roles: [Role]
+}
+
+
+type Tag implements Metadata {
+    id:ID
+    tagName:String
+    description:String
+    createdAt:Date
+    updatedAt:Date
+    createdBy:String
+    updatedBy:String
+    published: Published
+}
+
+type Role implements Metadata{
+    id : ID!
+    description:String
+    canonicalName:String
+    name:String
+    accountId:String
+    isComposite:Boolean
+    state:State
+    subRoles:[Role]
+    audits:[Audit]
+    permissions:[Permission]
+    customData:String
+    namespace:String
+    usersAssigned:ID
+    tags:[Tag]
+    createdAt:Date
+    updatedAt:Date
+    createdBy:String
+    updatedBy:String
+    roleType:RoleType
+    published: Published
+}
+
+
+type Action implements Metadata{
+    id:ID!
+    name:String
+    canonicalName:String!
+    createdAt:Date
+    updatedAt:Date
+    createdBy:String
+    updatedBy:String
+    description:String
+    published: Published
+}
+
+type Resource implements Metadata{
+    id:ID!
+    name:String
+    canonicalName:String!
+    parentResource:Resource
+    actions:[Action]
+    tags:[Tag]
+    audits:[Audit]
+    description:String
+    state:State
+    published: Published
+    namespace:String
+    createdAt:Date
+    updatedAt:Date
+    createdBy:String
+    updatedBy:String
+}
+
+type Permission implements Metadata{
+    name:String
+    id:ID!
+    description:String
+    action:Action!
+    resource:Resource!
+    canonicalName:String
+    namespace:String
+    createdAt:Date
+    updatedAt:Date
+    createdBy:String
+    updatedBy:String
+}
+
+type Audit {
+    auditId:String
+    actionDateTime:Date
+    createDateTime:Date
+    locale:String
+    subject:Subject
+    actor:Actor
+    auditContext:AuditContext
+    actionDetail:ActionDetail
+}
+
+type Subject {
+    id:String
+    type:String
+}
+
+type Actor {
+    id:String
+    type:String
+}
+
+type AuditContext {
+    applicationId:String
+    offeringId:String
+    country:String
+    originatingIp:String
+    clientIp:String
+    server:String
+}
+
+type ActionDetail{
+    actionName:String
+    actionResult:String
+    description:String
+}
+
+input PublishResource {
+    canonicalName: String!
+}
+
+input PublishResourceInput {
+    resourceCanonicalNames : [PublishResource]!
+    publishResourceEntities : [PublishResourceEntitiesInput]
+}
+
+input PublishResourceEntitiesInput {
+    resource: ResourcePublishInput!
+    actions: [ActionPublishInput]!
+    tags: [TagPublishInput]!
+}
+
+input ResourcePublishInput {
+    resourceInput: ResourceInput!
+    createdAt:String
+    updatedAt:String
+    createdBy:String
+    updatedBy:String
+}
+
+input ActionPublishInput {
+    actionInput: ActionInput!
+    createdAt:String
+    updatedAt:String
+    createdBy:String
+    updatedBy:String
+}
+
+input TagPublishInput {
+    tagInput: TagInput!
+    createdAt:String
+    updatedAt:String
+    createdBy:String
+    updatedBy:String
+}
+
+type PageInfo {
+    hasPreviousPage: Boolean!
+    hasNextPage: Boolean!
+    startCursor: String
+    endCursor: String
+}
+
+type TagConnection {
+    edges: [TagConnectionEdge]
+    pageInfo: PageInfo
+}
+
+type TagConnectionEdge {
+    cursor: String
+    node: Tag
+}
+
+type ResourceConnection {
+    edges: [ResourceConnectionEdge]
+    pageInfo: PageInfo
+    totalCount: ID
+}
+
+type ResourceConnectionEdge {
+    cursor: String
+    node: Resource
+}
+
+type RoleConnection {
+    edges: [RoleConnectionEdge]
+    pageInfo: PageInfo
+    totalCount: ID
+}
+
+type RoleConnectionEdge{
+    cursor: String
+    node: Role
+}
+
+type ActionConnection {
+    edges: [ActionConnectionEdge]
+    pageInfo: PageInfo
+}
+
+type ActionConnectionEdge {
+    cursor: String
+    node: Action
+}
+
+input TagInput {
+    name:String
+    description:String
+}
+
+input ResourceInput {
+    actions:[String]
+    description:String
+    parentCanonicalName:String
+    name:String
+    canonicalName:String
+    state:State
+    tags:[String]
+    namespace:String
+    createdAt:Date
+    updatedAt:Date
+}
+
+input ActionInput{
+    name:String
+    canonicalName:String
+    description:String
+    createdAt:Date
+    updatedAt:Date
+}
+
+input RoleInput {
+    name:String
+    canonicalName:String
+    description:String
+    permissions:[String]
+    accountId:String
+    namespace:String
+    subRoles:[String]
+    customData:String
+    state:State
+    tags:[String]
+    createdAt:Date
+    updatedAt:Date
+    roleType:RoleType
+}
+
+input AssignRole {
+    profileId:String
+    accountId:String
+    roles:[String]
+}
+
+input RoleMigrationInput {
+    name:String
+    canonicalName:String
+    description:String
+    permissions:[String]
+    accountId:String
+    namespace:String
+    subRoles:[String]
+    customData:String
+    state:State
+    tags:[String]
+    createdAt:Date
+    updatedAt:Date
+    createdBy:String
+    updatedBy:String
+}
+
+input ActionMigrationInput{
+    name:String
+    canonicalName:String
+    description:String
+    createdAt:Date
+    updatedAt:Date
+    createdBy:String
+    updatedBy:String
+}
+
+
+input PermissionMigrationInput {
+    name:String
+    canonicalName:String
+    description:String
+}
+
+input ResourceMigrationInput {
+    actions:[String]
+    description:String
+    parentCanonicalName:String
+    name:String
+    canonicalName:String
+    state:State
+    tags:[String]
+    createdAt:Date
+    updatedAt:Date
+    createdBy:String
+    updatedBy:String
+    namespace:String
+}
+
+input LDAPGroupRoleMigrationInput {
+    roleId:String
+    realmId:String
+    resourceRealmId:String
+    lastUpdatedTime:Date
+}
+
+input LDAPGroupMigrationInput {
+    externalLdapGroupName:String
+    ldapGroupType:String!
+    description:String
+    active:Boolean
+    name:String
+    lastUpdated:Date
+    customData:String
+    ldapGroupRoleMigrationInput:[LDAPGroupRoleMigrationInput]
+}
+
+input LDAPGrpInput {
+    externalGrpName: String
+    roleCanonicalNames: [String]!
+}
+
+input PublishLDAPGrpInput {
+    ldap : [PublishLDAPGrp]!
+}
+
+input PublishLDAPGrp {
+    name: String!
+    roleCanonicalNames: [String]
+    createdAt:String
+    createdBy:String
+    updatedBy:String
+}
+
+type PublishResponse  {
+    response: [Response]
+}
+
+type Response  {
+    name: String!
+    success: Boolean!
+    error: PublishErrorMsg
+}
+
+type PublishErrorMsg {
+    errorCode: String!
+    errorMessage: String!
+}
+
+input PublishRolesInput {
+    roleCanonicalNames : [PublishRole]!
+}
+
+input PublishRole {
+    canonicalName: String!
+}
+
+input RollbackResourceInput {
+    canonicalName: String!
+}
+
+input RollbackRoleInput {
+    canonicalName: String!
+}
+
+input RollbackLDAPGroupInput {
+    name: String!
+}
+
+input ProfileExtensionInput {
+    profileId: String
+    accountId: String
+    extensions: JSON
+}
+
+input DeleteProfileExtensionInput {
+    profileId: String
+    accountId: String
+    extensions: [String]
+}
+
+type RollbackResponse  {
+    response: Response
+}
+
+type Mutation {
+    migrateRole(with:RoleMigrationInput!):Role
+    migrateAction(with:ActionMigrationInput!):Action
+    migrateResource(with:ResourceMigrationInput!):Resource
+    migrateLDAPGroup(with:LDAPGroupMigrationInput!):LDAPGrp
+    # Create an action
+    createAction(with:ActionInput!):Action
+    # Create a resource
+    createResource(with:ResourceInput!):Resource
+    # Create a role
+    createRole(with:RoleInput!):Role
+    # Create tag
+    createTag(with:TagInput!):Tag
+    # Update an action either with id or providing canonicalName in ActionInput
+    updateAction(id:ID,with:ActionInput!):Action
+    # Update a resource either with id or providing canonicalName in ResourceInput
+    updateResource(id:ID,with:ResourceInput!):Resource
+    # Update a role either with id or providing canonicalName in RoleInput
+    updateRole(id:ID,with:RoleInput!):Role
+    # Assign a role owned by account or a system role to a profile.
+    assignRole(with:AssignRole!):UserAssignment
+    # AssignRolesToLDAPGrp
+    assignRolesToLDAPGrp(with: LDAPGrpInput!): LDAPGrp
+    # UnAssignRolesToLDAPGrp
+    unassignRolesToLDAPGrp(with: LDAPGrpInput!): LDAPGrp
+    # UpdateRolesToLDAPGroup
+    updateRolesToLDAPGrp(with: LDAPGrpInput!):LDAPGrp
+    #Publish Resources
+    publishResource(with: PublishResourceInput!): PublishResponse
+    # Delete records
+    deleteRecordsForFTs:String
+    #Publish LDAP Group
+    publishLDAP(with: PublishLDAPGrpInput!) : PublishResponse
+    #Publish Roles to Production
+    publishRoles(with: PublishRolesInput!) : PublishResponse
+    # Rollback Resource
+    rollbackResource(with: RollbackResourceInput!): RollbackResponse
+    # Rollback Role
+    rollbackRole(with: RollbackRoleInput!): RollbackResponse
+    # Rollback LDAP Mapping
+    rollbackLDAPGroupMapping(with: RollbackLDAPGroupInput!): RollbackResponse
+    #update profileExtensions
+    updateProfileExtensions(input:ProfileExtensionInput) : ProfileExtension
+    #delete Profile Extensions
+    deleteProfileExtensions(input: DeleteProfileExtensionInput): ProfileExtension
+}
+
